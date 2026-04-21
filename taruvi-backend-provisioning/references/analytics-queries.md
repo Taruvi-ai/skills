@@ -2,6 +2,8 @@
 
 Analytics queries are named, parameterized SQL statements stored as first-class Taruvi resources. They can be executed on demand, cached, and consumed by Refine via the `app` data provider.
 
+**When to use:** Analytics queries are required when a dashboard element needs data from 2 or more tables. For single-table aggregates, use the datatable provider with `aggregate`/`groupBy` instead.
+
 ## Registering a query
 
 ### Internal (against tenant DB)
@@ -38,6 +40,8 @@ manage_query(
 ```
 
 External queries require a `secret_key` that points to an analytics-typed secret (`analytics-postgres`, `analytics-mysql`, etc.). Create the secret first — see [secrets-and-types.md](secrets-and-types.md).
+
+**Supported external databases:** PostgreSQL, MySQL, Amazon Redshift, Elasticsearch, ClickHouse.
 
 ## Jinja2 parameters
 

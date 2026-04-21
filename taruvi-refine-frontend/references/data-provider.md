@@ -246,10 +246,26 @@ const { data } = useCustom({
 Before writing a dashboard query, ask: **does this metric need data from more than one table?**
 
 - **1 table** → `useList` with `meta.aggregate` / `meta.groupBy`
-- **2+ tables** → registered analytics query via `useCustom` + `meta.kind: "analytics"`
+- **2 or more tables** → registered analytics query via `useCustom` + `meta.kind: "analytics"`
 - **Row fetch + derive in React** → never (for dashboard/summary metrics)
 
-The last case looks tempting for small datasets but silently breaks as data grows. The rule is: if it's a summary metric, aggregation belongs on the server.
+Example: "revenue by department" needs orders + departments = 2 tables → analytics. "Orders by status" only needs orders = 1 table → datatable aggregate.
+
+### End-to-end analytics flow
+
+1. **Create the query** via MCP: `manage_query(action="create", name="Revenue by Department", query_text="SELECT ...", connection_type="internal")`
+2. **Call from frontend**: `useCustom({ url: "revenue-by-department", method: "post", dataProviderName: "app", config: { payload: {} }, meta: { kind: "analytics" } })`
+3. **Parameterize** with Jinja2: use `{{ start_date }}` in SQL, pass via `config.payload: { start_date: "2024-01-01" }`
+
+For internal queries (same database as datatables), use `connection_type: "internal"` — no secret needed.
+
+### Analytics gotchas
+
+- **Missing `dataProviderName: "app"`** — routes to database provider, returns "resource not found."
+- **Missing `meta.kind: "analytics"`** — app provider throws an error.
+- **Query slug mismatch** — `url` must be the exact slug from `manage_query`, not the display name.
+- **Using datatable aggregate for cross-table data** — if the metric needs data from 2 or more tables, `aggregate`/`groupBy` cannot express it. Use analytics.
+- **Client-side data merging** — fetching from 2 tables separately and combining in React is fragile and breaks pagination. Push cross-table logic to a saved query.
 
 ## Underscore fields on responses
 
@@ -258,3 +274,15 @@ Rows returned from Taruvi may include the server-side field:
 - `_allowed_actions` — populated when `meta.allowedActions` was set; array of per-row permitted actions (e.g., `["update", "delete"]`). Computed by Taruvi via Cerbos; the provider passes it through.
 
 This lets list pages gate per-row UI (edit/delete buttons) without a per-row `useCan` round-trip.
+
+## Gotchas
+
+- **N separate queries for a dashboard** — separate `useList` calls per status/category is a performance bug. Replace with one `groupBy` query for single-table data, or a saved analytics query if the element needs data from 2 or more tables.
+- **Full row fetch for KPI pages** — pulling rows into React to compute totals/charts is a bug. Always push aggregation to the server.
+- **Graph data without depth limit** — always set `depth` on graph/edge queries. Without it, unbounded traversal will time out.
+- **`having` without `groupBy`** — `having` only works after a `groupBy`. Using it alone silently returns no results.
+- **Large datasets without pagination** — always add `pagination` for list UIs. Unbounded queries time out on tables with >1000 rows.
+- **Client-side list filtering on backend data** — move filtering into backend filters/sorters unless the user explicitly asked for local filtering.
+- **`aggregate` expects an array** — `aggregate: "count"` fails silently. Use `aggregate: ["count"]`.
+- **Filter operator typos** — the operator is `"eq"`, not `"equals"` or `"="`.
+- **Missing `dataProviderName`** — omitting it on non-default providers routes to the database provider, returning confusing errors.

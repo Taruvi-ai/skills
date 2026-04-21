@@ -15,6 +15,8 @@ Use the **Taruvi MCP server** to provision and modify backend resources. This sk
 
 This skill is the **control plane**. If you're writing Python that runs inside a deployed function, switch to `taruvi-functions`. If you're building a Refine frontend, switch to `taruvi-refine-frontend`.
 
+**Compliance rule:** This skill's prescribed patterns (Frictionless schemas, MCP tool invocation order, destructive-op protocol) are mandatory. Do not invent endpoints, skip validation, or hardcode secrets. If a requirement cannot be met, stop and ask the user.
+
 ## Core principles
 
 1. **Trust the MCP tool, not your memory.** The MCP server is authoritative for Taruvi's current behavior. Read tool responses carefully — they return structured IDs, slugs, and status you need for the next step.
@@ -310,6 +312,7 @@ If any item fails, fix it before presenting the work as done.
 
 ## When you get stuck
 
+- Backend query capabilities (filter operators, aggregation, storage/user filters): [references/backend-capabilities.md](references/backend-capabilities.md).
 - Tool-level docs: `get_ai_docs(category="policies"|"sdk"|"users", topic="guide"|"attributes")`.
 - MCP quickref: [references/mcp-tool-quickref.md](references/mcp-tool-quickref.md).
 - Frictionless schema detail: [references/datatable-schema-patterns.md](references/datatable-schema-patterns.md).

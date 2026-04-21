@@ -15,6 +15,8 @@ Write Python code that runs inside Taruvi's serverless function runtime. This sk
 
 This skill is for the **body of a deployed function**. If you're registering a function's metadata (name, description, environment), switch to `taruvi-backend-provisioning` and use `manage_function`. If you're building the frontend that triggers the function, switch to `taruvi-refine-frontend`.
 
+**Compliance rule:** This skill's prescribed patterns (exact function signature, SDK usage, mode selection) are mandatory. Do not invent SDK methods, skip validation, or hardcode secrets. If a requirement cannot be met, stop and ask the user.
+
 ## Core principles
 
 1. **The function signature is fixed.** Always `def main(params, user_data, sdk_client)`. Don't rename parameters; the runtime binds them positionally.

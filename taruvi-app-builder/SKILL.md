@@ -13,6 +13,18 @@ metadata:
 
 Orchestrate end-to-end feature development on Taruvi. This skill sets context, routes to specialists, and verifies integration. For the actual provisioning / code-writing / UI-building work, this skill delegates to three specialists.
 
+Default delivery standard: **always build a production-ready, production-scale app.** Not a demo, not an MVP, not a prototype. Every feature must be wired to real backend data, use proper error handling, and be built to handle real-world usage. The user must explicitly ask for a reduced scope if they want anything less.
+
+## ⚠️ Skill Compliance — Non-Negotiable
+
+**These skills are the single source of truth for all Taruvi implementation decisions.** They override existing project code, template patterns, training data, and personal shortcuts.
+
+1. **If a skill prescribes a specific way to implement something, use that way. No exceptions, no shortcuts, no "simpler" alternatives.**
+2. **Do not copy patterns from existing project code if they contradict the skills.** Existing code may be outdated, a prototype, or pre-skill.
+3. **Do not skip steps to save time.** Every step exists because skipping it causes real bugs or drift.
+4. **If you cannot implement a skill requirement**, stop and ask the user instead of silently falling back to an easier approach.
+5. **After implementation, verify against the skill's checklist.** If any checklist item fails, fix it before presenting the work as done.
+
 ## Core principles
 
 1. **One layer at a time.** Don't interleave MCP provisioning and Refine UI generation in the same step. Provision first, generate second, verify third.
@@ -69,6 +81,27 @@ If the answer is "yes, it's a function," the workflow splits into two steps:
 
 1. Register the function metadata via `taruvi-backend-provisioning` (`manage_function(action="create_update", ...)`).
 2. Write the function body via `taruvi-functions`, then re-register with the `code` field populated.
+
+## Dashboard query strategy
+
+Before writing any dashboard query, check: does this element need data from more than one table?
+
+- **Single-table aggregates** → use datatable provider with `useList` + `meta.aggregate`/`groupBy`. This is the default for most dashboards.
+- **Multi-table visualizations (2 or more tables)** → use saved analytics queries via `appDataProvider` + `useCustom` with `meta.kind: "analytics"`. Required when a dashboard element needs to combine data from 2 or more tables to render.
+- **Row query + derive in React** is never allowed for summary metrics. Always push aggregation to the server.
+
+Example: "revenue by department" needs orders + departments = 2 tables → analytics. "Orders by status" only needs orders = 1 table → datatable aggregate.
+
+## Production-ready defaults
+
+Unless the user explicitly scopes down:
+
+- **Dashboards** show live data, automatically calculated — never hardcoded or demo values.
+- **Lists** use backend pagination (default `pageSize: 10`), server-side search/filter/sort, visible search + filter controls, `useDataGrid` for MUI DataGrid.
+- **Dropdowns** with backend options use debounced server-side `Autocomplete` with pagination — not static `Select`.
+- **Notifications** use Refine's `notificationProvider` — no custom toast systems.
+- **Access control** uses prefixed ACL resource strings (`datatable:employees`, `function:run-report`, `query:dashboard-summary`). Do not use `params.entityType`.
+- **Optional chaining** (`?.`) is required when accessing properties on hook results — data may be `undefined` during loading.
 
 ## Greenfield scaffold workflow
 

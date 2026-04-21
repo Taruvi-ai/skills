@@ -43,7 +43,7 @@ Taruvi policies come in three flavors:
 
 Key bits:
 
-- `resource` — string identifier. Convention: `datatable:<table_name>` for datatables, `bucket:<slug>` for buckets, `function:<slug>` for functions.
+- `resource` — string identifier. Convention: `datatable:<table_name>` for datatables, `bucket:<slug>` for buckets, `function:<slug>` for functions, `query:<slug>` for analytics queries.
 - `version` — usually `"default"`; use other versions for staged rollouts.
 - `rules[]` — list of `{actions, effect, roles, condition?, derivedRoles?}`.
 - `condition.match.expr` — CEL expression. `P` is the principal, `R` is the resource, `request.aux` is auxiliary data.

@@ -15,6 +15,8 @@ Use `@taruvi/refine-providers` to connect Refine.dev admin UIs to Taruvi. This s
 
 This skill is the **frontend layer**. If you're provisioning backend resources, switch to `taruvi-backend-provisioning`. If you're writing Python for a Taruvi function body, switch to `taruvi-functions`.
 
+**Compliance rule:** This skill and its references are the source of truth for all provider usage. Do not substitute with simpler patterns, copy outdated project code, or skip prescribed steps. If a requirement cannot be met, stop and ask the user.
+
 ## Core principles
 
 1. **Resource name = datatable name** by default. Override with `meta.tableName` when they must differ (e.g., `resource: "active_users"` queries `tableName: "users"` with a filter).
@@ -259,6 +261,41 @@ const { data: canDelete } = useCan({
 return canDelete?.can ? <DeleteButton id={postId} /> : null;
 ```
 
+## Production-ready implementation rules
+
+### List pages (backend-driven by default)
+
+- Backend pagination is required. Default `pageSize: 10`; support `10`, `20`, `50`, `100` as selectable options.
+- Search, filters, and sorting must be server-side by default. Do not fetch rows and filter in React.
+- Provide visible search input and relevant filter controls (e.g., status, department, date range).
+- When using MUI `DataGrid`, default to Refine `useDataGrid` — do not hand-wire `useList` + component state.
+- Client-side filtering is only allowed if the user explicitly asks for it.
+
+### Network-backed dropdowns
+
+- Use `Autocomplete` (or equivalent typeahead), not a static `Select`.
+- Query options from the backend with pagination (default option `pageSize: 10`).
+- Debounce input before sending search requests.
+- Send the search term as server-side filters, not client-side filtering over fetched options.
+
+### Storage uploads (multi-file by default)
+
+- Allow selecting/uploading multiple files per action by default.
+- Process each file independently and capture per-file success/failure.
+- Keep storage object and metadata record creation/deletion consistent.
+- After upload/delete, invalidate/refetch file lists so UI reflects current state.
+- Use the path-based pattern: store file paths in the database, generate URLs on-demand via `getStorageUrl()` from `src/utils/storageHelpers.ts`.
+- Available helpers: `uploadFile()`, `uploadFileWithCleanup()` (edit forms — auto-deletes old file), `deleteFile()`, `getStorageUrl()`, `generateFilePath()`.
+
+### Notifications
+
+- Use Refine's `notificationProvider` for all success/error feedback.
+- Do not introduce custom toast/snackbar systems.
+
+### Optional chaining
+
+- Always use `?.` when accessing properties on hook results — data may be `undefined` during loading (e.g., `result?.data?.map(...)`, not `result.data.map(...)`).
+
 ## Gotchas
 
 1. **`meta.idColumnName` defaults to `"id"`.** Tables with a different PK must pass `idColumnName` on every hook that needs it (`useOne`, `useUpdate`, `useDelete`).
@@ -279,12 +316,18 @@ Before reporting a frontend feature as done:
 - [ ] Every new Refine resource is registered in the `<Refine resources={[...]}>` array with at least a `name`.
 - [ ] Resources whose name doesn't match the Taruvi datatable have `meta.tableName` set on every hook — or the resource is renamed to match.
 - [ ] Tables with non-`id` primary keys pass `meta.idColumnName` on every hook (`useOne`, `useUpdate`, `useDelete`, `useUpdateMany`).
-- [ ] Dashboard / KPI widgets aggregate server-side (`meta.aggregate`/`meta.groupBy` for single-table, or `useCustom` with `meta.kind: "analytics"` for multi-table) — never full row fetches derived in React.
-- [ ] List pages use backend pagination, server-side filters, server-side sort. No client-side filtering of backend results.
-- [ ] `useCan` or `meta.allowedActions` gates the right UI elements; 403 vs 401 errors render as expected (403 stays on page, 401 redirects to login).
-- [ ] Storage batch uploads surface the all-or-nothing failure mode correctly in UX; batch deletes surface per-file status.
+- [ ] Dashboard / KPI widgets aggregate server-side (`meta.aggregate`/`meta.groupBy` for single-table, or `useCustom` with `meta.kind: "analytics"` for 2 or more tables) — never full row fetches derived in React.
+- [ ] List pages use backend pagination (default `pageSize: 10`), server-side filters, server-side sort. No client-side filtering of backend results.
+- [ ] List pages include visible search input and relevant filter controls by default.
+- [ ] Backend-backed MUI `DataGrid` lists use `useDataGrid` by default.
+- [ ] Network-backed dropdowns use debounced server-side `Autocomplete` with pagination — not static `Select`.
+- [ ] `useCan` or `meta.allowedActions` gates the right UI elements; 403 vs 401 errors render as expected.
+- [ ] Access control uses prefixed ACL resource strings (`datatable:X`, `function:X`, `query:X`). No `params.entityType`.
+- [ ] Resources with access control have `meta.aclResource` set for menu integration.
+- [ ] Storage uploads default to multi-file. Per-file status is surfaced on failure.
 - [ ] Notifications go through Refine's `notificationProvider` — no ad-hoc toast libraries.
-- [ ] `node scripts/validate-resource-map.js <path-to-app>` passes (or was skipped with a documented reason).
+- [ ] All hook result access uses optional chaining (`?.`) — no bare `.data.map()` on potentially undefined results.
+- [ ] No N+1 patterns (looping `useOne` inside a list render — use `useMany` or `meta.populate` instead).
 
 ## When you get stuck
 
@@ -292,6 +335,8 @@ Before reporting a frontend feature as done:
 - Every filter operator: [references/filter-operators.md](references/filter-operators.md).
 - All `meta` options in context: [references/meta-options-cookbook.md](references/meta-options-cookbook.md).
 - Auth + access control details: [references/auth-access-control.md](references/auth-access-control.md).
+- Provider quick reference (all 6): [references/provider-quickref.md](references/provider-quickref.md).
 - Direct `@taruvi/sdk` usage when providers don't fit: [references/sdk-primer.md](references/sdk-primer.md).
 - Exported types and utility functions: [references/types-and-utilities.md](references/types-and-utilities.md).
+- **Backend capabilities** (what operators/filters/aggregations the server supports): load `taruvi-backend-provisioning` and read its `references/backend-capabilities.md`.
 - Validate Refine resources match Taruvi datatables: `node scripts/validate-resource-map.js` (see script header for usage).

@@ -308,6 +308,15 @@ useOne({
 });
 ```
 
+## App provider gotchas
+
+- **Missing `dataProviderName: "app"`** — forgetting it routes to the database provider, returning "resource not found."
+- **Missing `meta.kind: "function"`** — without it, the app provider throws an error.
+- **Function slug mismatch** — `url` must be the exact function slug, not the display name.
+- **Sync timeout** — functions >30s time out on sync calls. Use `meta: { kind: "function", async: true }`.
+- **Frontend cascade** — multi-resource operations chained in frontend code is a bug. Move to a single backend function.
+- **Keep payloads small** — move multi-step side effects into backend function code, not frontend.
+
 ## User provider meta
 
 ### `meta.username`

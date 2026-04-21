@@ -58,6 +58,20 @@ Wraps Taruvi `App`, `Functions`, `Analytics`, `Secrets`.
 
 **Key meta:** `kind`, `keys`, `tags`, `app`, `includeMetadata`.
 
+**Function helper utilities** (in `src/utils/functionHelpers.ts`):
+
+```typescript
+import { executeFunction, executeFunctionAsync } from "../../utils/functionHelpers";
+
+// Sync — wait for result
+const result = await executeFunction("calculate-total", { items: [1, 2, 3] });
+
+// Async — fire and forget
+executeFunctionAsync("send-notification", { message: "Done" }).catch(console.warn);
+```
+
+These helpers call `appDataProvider.custom()` with the correct contract (`url: slug, method: "post", payload: params, meta: { kind: "function" }`).
+
 ---
 
 ## `userDataProvider(client)` — user
@@ -81,6 +95,11 @@ Wraps Taruvi `User` + `Auth`.
 - `getOne({ resource: "users", id: "me" })` → calls `Auth.getCurrentUser()`.
 
 **Endpoints:** `api/users/{username}/`, `api/users/me/`.
+
+**User provider gotchas:**
+- **Missing `dataProviderName: "user"`** — forgetting it routes to the database provider, returning confusing errors.
+- **User search** — use the `search` filter field, not `username__contains`. Backend search covers username, email, and name.
+- **Role assignment is separate** — creating a user does not assign roles. Use `sdk_client.users.assign_roles()` in a function, or the roles API separately.
 
 ---
 
@@ -155,6 +174,18 @@ Rules of thumb:
 | `useUpdate` on single file metadata | Atomic single call — no batch semantics. |
 
 When presenting upload UX: if any file fails, surface the error and let the user retry the whole batch. For delete UX: render a per-row status so partially-succeeded deletes don't look like a total failure.
+
+## Storage gotchas
+
+- **Uploading to an existing path** — upsert behavior: the object is replaced silently. Always warn users in UI.
+- **Visibility mismatch** — per-object visibility overrides the bucket default. A `private` file in a `public` bucket stays private.
+- **Batch upload limit** — max 10 files and 100MB per call. Exceeding returns a 400 with no partial success. Split larger sets.
+- **Batch delete limit** — max 100 paths per call. Supports partial success.
+- **Quota is advisory** — the API does not block uploads when exceeded. Surface as a warning, not a blocker.
+- **`allowed_mime_types` rejects silently** — generic 400, no mention of MIME types. Check bucket config first.
+- **Missing `app_category`** — bucket creation requires `app_category` (`assets` or `attachments`).
+- **`dataProviderName: "storage"` is required** — forgetting it routes to the database provider.
+- **Default to multi-file upload** — attachment flows should support multi-file selection by default, not single-file-at-a-time.
 
 ## Registration pattern
 

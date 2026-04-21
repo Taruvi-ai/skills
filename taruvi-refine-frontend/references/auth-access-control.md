@@ -118,9 +118,9 @@ if (canEdit?.can) {
 
 ### Resource naming convention
 
-Taruvi's Cerbos integration identifies resources as `"<entityType>:<name>"` strings. Match this format in `useCan` calls to what your policy uses:
+Use prefixed ACL resource strings — format: `<kind>:<name>`. Pass the prefixed string directly to `useCan`/`CanAccess`. Do **not** use `params.entityType`.
 
-| Entity type | Format | Example |
+| Prefix | Format | Example |
 |---|---|---|
 | Datatable | `datatable:<table_name>` | `datatable:posts`, `datatable:orders` |
 | Function | `function:<slug>` | `function:send-email` |
@@ -129,23 +129,18 @@ Taruvi's Cerbos integration identifies resources as `"<entityType>:<name>"` stri
 
 Your Cerbos policies (authored via `manage_policies` in `taruvi-backend-provisioning`) have a `resource` field like `"datatable:posts"` — the string you pass to `useCan` must match exactly. Mismatched strings silently deny.
 
-### ⚠️ Known issue: accessControlProvider field mismatch
+### Menu integration
 
-As of `@taruvi/refine-providers` v1.3.0 + `@taruvi/sdk` v1.4.7, there's a field-name mismatch between the Refine `accessControlProvider` and the JS SDK's `Policy.checkResource`:
+Menu components use `getAclResource(item)` from `src/utils/aclResource.ts` which reads `meta.aclResource` from the Refine resource definition:
 
-- The Refine provider sends `{resource, recordId, attributes, actions}` to `policy.checkResource()`.
-- The SDK's `Policy.checkResource()` expects `Resources` items with `{entityType, tableName, recordId, attributes, actions}` and internally builds `kind: \`${entityType}:${tableName}\``.
-- With the Refine provider's actual payload, `entityType` and `tableName` are both `undefined`, producing `kind: "undefined:undefined"` on the Cerbos request — which matches no policy and always denies.
+```tsx
+resources={[
+  { name: "employees", meta: { aclResource: "datatable:employees" }, list: "/employees" },
+  { name: "reports", meta: { aclResource: "query:monthly-report" }, list: "/reports" },
+]}
+```
 
-**Impact**: `useCan` may return `{can: false, reason: "Permission denied by policy"}` even when the user should have access.
-
-**Workaround options**:
-
-1. Pre-fetch `_allowed_actions` on list queries via `meta.allowedActions: ["update", "delete"]` and gate UI on that, not `useCan`. This is the documented path and avoids the bug entirely.
-2. Call `policy.getAllowedActions({kind: "datatable:posts", id: "*", attr: {}})` directly via the SDK, bypassing `useCan`.
-3. Watch the `@taruvi/refine-providers` repo for a fix (likely in a future minor release).
-
-Until fixed upstream, prefer `meta.allowedActions` on list queries for per-row gating.
+No menu component changes needed — just set `meta.aclResource` on each resource.
 
 ### Batching behavior
 
