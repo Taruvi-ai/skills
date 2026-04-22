@@ -102,6 +102,7 @@ Unless the user explicitly scopes down:
 - **Notifications** use Refine's `notificationProvider` — no custom toast systems.
 - **Access control** uses prefixed ACL resource strings (`datatable:employees`, `function:run-report`, `query:dashboard-summary`). Do not use `params.entityType`.
 - **Optional chaining** (`?.`) is required when accessing properties on hook results — data may be `undefined` during loading.
+- **Populate safety** requires schema validation first: only use `meta.populate` with fields that are declared relationships on the datatable. Do not assume UUID columns are populate-capable relationships.
 
 ## Greenfield scaffold workflow
 
@@ -199,6 +200,7 @@ After a feature lands, confirm:
 - [ ] If access control is configured: create test users for each role then report their usernames and passwords so the user can test login and verify permissions work correctly.
 - [ ] Refine resources are in `resources[]` and map correctly.
 - [ ] List page renders with data, filters work, pagination works.
+- [ ] Any `meta.populate` usage only references declared table relationships (no plain UUID field names unless explicitly declared as relationships).
 - [ ] Edit page saves, Cerbos allows/denies as expected.
 - [ ] `useCan` gates the right UI elements.
 - [ ] Storage uploads/downloads work (if file-backed).

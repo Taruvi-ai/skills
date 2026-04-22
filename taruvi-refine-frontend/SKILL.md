@@ -24,6 +24,7 @@ This skill is the **frontend layer**. If you're provisioning backend resources, 
 3. **Multiple providers, one client.** Register all six providers against the same `Client` instance. Select providers by `dataProviderName` in hooks.
 4. **Auth is redirect-based.** There is no credentials login in the default Refine flow. `authProvider.login()` redirects to Taruvi's login endpoint.
 5. **AccessControl batches.** Permission checks are debounced 50ms via DataLoader. Tests that don't `await` will flake.
+6. **`populate` only accepts declared relationships.** Before adding `meta.populate`, verify the table's available relationships from schema metadata. Do not populate plain UUID fields unless they are declared relationships.
 
 ## Setup
 
@@ -270,6 +271,7 @@ return canDelete?.can ? <DeleteButton id={postId} /> : null;
 - Provide visible search input and relevant filter controls (e.g., status, department, date range).
 - When using MUI `DataGrid`, default to Refine `useDataGrid` — do not hand-wire `useList` + component state.
 - Client-side filtering is only allowed if the user explicitly asks for it.
+- If list queries use `meta.populate`, only include relationship names that are actually declared on the table. Validate first; invalid relationship names cause 400s.
 
 ### Network-backed dropdowns
 
@@ -308,6 +310,7 @@ return canDelete?.can ? <DeleteButton id={postId} /> : null;
 8. **Storage `getOne` returns a Blob by default.** Pass `meta.metadata: true` to get the file's metadata object instead.
 9. **Graph format="tree" requires `hierarchy.enabled` on the table.** Graph format requires `graph.enabled`. See the backend-provisioning skill for schema setup.
 10. **`user-invocable: false`-style skills don't apply here** — this is a client-side library, not an agent skill runtime. Don't confuse consumer app configuration with agent skill metadata.
+11. **`populate` relationship mismatch returns 400.** Example: a field like `manager_id` may exist as UUID data but still not be a declared relationship for populate. Check available relationships before adding it to `meta.populate`.
 
 ## Verification checklist
 
@@ -328,6 +331,7 @@ Before reporting a frontend feature as done:
 - [ ] Notifications go through Refine's `notificationProvider` — no ad-hoc toast libraries.
 - [ ] All hook result access uses optional chaining (`?.`) — no bare `.data.map()` on potentially undefined results.
 - [ ] No N+1 patterns (looping `useOne` inside a list render — use `useMany` or `meta.populate` instead).
+- [ ] Every `meta.populate` field is validated against declared table relationships (from schema metadata); no plain UUID fields are included unless declared as relationships.
 
 ## When you get stuck
 
