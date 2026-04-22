@@ -302,8 +302,10 @@ After any provisioning task, confirm before reporting done:
 - [ ] For any new table with data-plane consumers: a Cerbos policy exists (`manage_policies(action="get", name_regexp="^datatable:<name>$")`) and is enabled.
 - [ ] For new roles: `manage_roles(action="list")` shows the role with the correct parent (if hierarchical).
 - [ ] For role assignments: verify a test user has the role via `list_users(role_slug=...)` or the user's apps/roles lookup.
+- [ ] If Cerbos policies were created: create test users for each role via `create_user` with `role_slugs`. Report their usernames and passwords so the user can verify access control works.
 - [ ] For new buckets: `manage_storage(action="list_buckets")` returns the bucket with the intended `visibility` and `app_category`.
-- [ ] For new functions: `manage_function(action="get", function_slug=...)` returns the metadata; if the code was just updated, confirm the `code` field matches.
+- [ ] For new functions: `manage_function(action="get", function_slug=...)` returns the metadata; if the code was just updated, confirm the `code` field matches. **Then execute it** with `execute_function(function_slug=..., params={...})` to verify it runs without errors. Check the response format — the frontend code must use the exact field names and structure returned. If they don't match, fix the frontend to align with the backend response.
+- [ ] For new analytics queries: `manage_query(action="get", query_slug=...)` returns the query. **Then execute it** with `execute_query(query_slug=..., params={...})` to verify it returns data. Check column names and types — the frontend code must reference the exact column names returned. If they don't match, fix the frontend to align with the query response.
 - [ ] For new secrets: `get_secret(key=...)` returns the right type and (for public) the expected value.
 - [ ] For any destructive op (delete_datatable, raw SQL DROP/TRUNCATE, policy replace): the plan was surfaced to the user and explicit confirmation was captured.
 - [ ] No workflow instructions were added to MCP tool descriptions — that content belongs here in the skill.

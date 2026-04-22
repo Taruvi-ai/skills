@@ -194,7 +194,9 @@ After a feature lands, confirm:
 - [ ] Datatable exists and has the expected schema (`get_datatable_schema`).
 - [ ] Policy exists and is enabled (`manage_policies(action="get")`).
 - [ ] Role assignments are correct for a representative test user.
-- [ ] Function (if any) executes without error (`execute_function`).
+- [ ] Function (if any) executes without error (`execute_function`). Check the response format — frontend must adapt the backend response format.
+- [ ] Analytics query (if any) executes without error (`execute_query`). Check column names — frontend must adapt the backend response format.
+- [ ] If access control is configured: create test users for each role via `create_user` with `role_slugs`, then report their usernames and passwords so the user can test login and verify permissions work correctly.
 - [ ] Refine resources are in `resources[]` and map correctly.
 - [ ] List page renders with data, filters work, pagination works.
 - [ ] Edit page saves, Cerbos allows/denies as expected.
