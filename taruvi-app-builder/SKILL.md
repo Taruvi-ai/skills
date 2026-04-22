@@ -197,7 +197,10 @@ After a feature lands, confirm:
 - [ ] Role assignments are correct for a representative test user.
 - [ ] Function (if any) executes without error (`execute_function`). Check the response format — frontend must adapt the backend response format.
 - [ ] Analytics query (if any) executes without error (`execute_query`). Check column names — frontend must adapt the backend response format.
-- [ ] If access control is configured: create test users for each role then report their usernames and passwords so the user can test login and verify permissions work correctly.
+- [ ] If access control is configured: ALWAYS create test users for each role before marking the task complete. Do not skip this unless the user explicitly says no user creation.
+- [ ] Test user naming must be deterministic: `qa_<role_slug>_<YYYYMMDD>` (example: `qa_inventory_manager_20260422`).
+- [ ] Test user passwords must be strong and unique (12+ chars with upper/lower/digit/symbol), then reported with usernames in the final output.
+- [ ] Include cleanup guidance in the final output: either deactivate/delete created `qa_*` users after validation or rotate their passwords.
 - [ ] Refine resources are in `resources[]` and map correctly.
 - [ ] List page renders with data, filters work, pagination works.
 - [ ] Any `meta.populate` usage only references declared table relationships (no plain UUID field names unless explicitly declared as relationships).
