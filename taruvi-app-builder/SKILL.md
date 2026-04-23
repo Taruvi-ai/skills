@@ -44,65 +44,156 @@ See [references/architecture-overview.md](references/architecture-overview.md) f
 
 Project-level context (conventions, commands, env) goes in the consuming app's `AGENTS.md` / `CLAUDE.md` — see [references/agents-md-template.md](references/agents-md-template.md) for the template.
 
-## Decision tree: which specialist?
+## Step-by-Step Instructions
 
-```
-Is the task single-domain?
-├── Yes, backend only (tables, policies, roles, secrets, functions metadata)
-│   → Activate taruvi-backend-provisioning, STOP here.
-├── Yes, function body only (Python that will run in a function)
-│   → Activate taruvi-functions, STOP here.
-├── Yes, frontend only (Refine pages, hooks, UI)
-│   → Activate taruvi-refine-frontend, STOP here.
-└── No — the task spans two or more layers
-    → Use the feature-add workflow below. Delegate to specialists in sequence.
-```
+### Step 1 — Detect Project Mode
 
-## Function or provider? (frontend routing)
+Identify which mode applies before doing anything:
 
-When you're inside the frontend and wondering whether an operation should be a direct Refine call or a serverless function, use this rule:
+| Mode | Signals |
+|---|---|
+| **Greenfield** | No existing Taruvi code, scaffolding from scratch |
+| **Existing app** | Project has `@taruvi/sdk`, `.env` with `TARUVI_*` keys, or existing provider/function code |
 
-**Does the task touch more than one resource?** (resources = datatables, storage buckets, users, secrets, analytics queries)
+For existing apps — read the relevant existing files first. Understand what is already built before proposing changes.
 
-- **No** — single-resource CRUD → use Refine hooks directly via the right provider.
-- **Yes** — 2+ resources, or any of the triggers below → use a Taruvi function.
+### Step 2 — Read Foundation Reference
 
-| Trigger | Why a function | Where the skill detail lives |
-|---|---|---|
-| Multi-resource create/update/delete cascade | Atomic, auditable, no race conditions | `taruvi-functions/references/scenarios.md` Scenario 1–2 |
-| Reacting to a data-change event (RECORD_CREATE, etc.) | Runs server-side on the event | `taruvi-functions/references/scenarios.md` Scenario 4 |
-| Scheduled job (cron) | No user triggers it | `taruvi-functions/references/scenarios.md` Scenario 3 |
-| External API call with a stored secret | Don't leak credentials to the browser | `taruvi-functions/references/scenarios.md` Scenario 5 |
-| Long-running task (>30s) | Async execution, task-id polling | `taruvi-functions/references/function-templates.md` (async fan-out) |
-| Public webhook receiver | `is_public=True` endpoint | `taruvi-functions/references/scenarios.md` Scenario 5 |
-| Authorization-gated server-side logic | Runs with service credentials, not user | `taruvi-functions/references/auth-patterns.md` |
+Open and read `references/architecture-overview.md` before writing any code.
 
-If the answer is "yes, it's a function," the workflow splits into two steps:
+For deploy tasks, ask the user for their deploy target and workflow details.
 
-1. Register the function metadata via `taruvi-backend-provisioning` (`manage_function(action="create_update", ...)`).
-2. Write the function body via `taruvi-functions`, then re-register with the `code` field populated.
+### Step 2.5 — Identify the Current Package API
 
-## Dashboard query strategy
+Before writing code against Taruvi packages, identify the current non-deprecated API surface in the installed package for this repo.
 
-Before writing any dashboard query, check: does this element need data from more than one table?
+- Never introduce new usage of deprecated package APIs.
+- If old examples, README snippets, or existing code use deprecated providers or hooks, do not copy them into new work.
+- If the canonical path is unclear, resolve that before building the feature.
+- If the only apparent working path is deprecated, treat that as a provider/docs issue to fix before finalizing the app code.
+
+### Step 2.6 — Set Production-Ready Acceptance Baseline
+
+Unless explicitly scoped down by the user, treat app tasks as production-ready deliverables:
+
+- no hardcoded demo-only arrays for core workflows
+- real backend wiring for CRUD/list/detail flows
+- backend-driven pagination/sort/filter for list pages
+- list-page UX includes visible search and relevant filter controls
+- dashboards show live data from real backend queries, automatically calculated from the system's data and kept up to date — never hardcoded or demo values
+- error and success paths are surfaced through the app notification provider
+- required empty/loading/error states are present for key screens
+
+### Step 3 — Decide: Function or Provider?
+
+Answer this question before routing:
+
+**Does this task touch more than one resource?**
+(resources = database tables, storage buckets, users, secrets, analytics)
+
+- **Yes** → a serverless function is required
+- **No** → use provider hooks directly
+
+Functions are required when the task involves:
+- 2+ resources (multi-resource create/update/delete/mix)
+- Backend logic beyond simple CRUD
+- Reacting to data or user lifecycle events
+- Scheduled / cron background jobs
+- Calling external APIs using stored secrets
+- Long-running tasks (>30s)
+- Public unauthenticated endpoints
+- Authorization-gated operations
+- Function-to-function pipelines
+
+For everything else — use provider hooks directly, no function needed.
+
+### Step 4 — Route to the Right Module
+
+**You MUST open and read the SKILL.md for every relevant specialist before writing any code.** Do not proceed to implementation until all applicable skills are loaded.
+
+| If the task involves… | You MUST load |
+|---|---|
+| Backend provisioning (tables, policies, roles, secrets, functions metadata) | `taruvi-backend-provisioning` |
+| Python function bodies | `taruvi-functions` |
+| Frontend pages, hooks, UI | `taruvi-refine-frontend` |
+| Task spans 2+ layers | ALL relevant specialist skills |
+
+**Most app-building tasks require 2+ skills.** For example:
+- "Build an employee list page" → `taruvi-refine-frontend` + `taruvi-backend-provisioning`
+- "Add file upload to onboarding" → `taruvi-refine-frontend` + `taruvi-backend-provisioning` + `taruvi-functions`
+- "Build a dashboard" → `taruvi-refine-frontend` + `taruvi-backend-provisioning`
+
+### Step 5 — Choose Dashboard Query Strategy
+
+If the task includes a dashboard, KPI cards, charts, or summary metrics:
 
 - **Single-table aggregates** → use datatable provider with `useList` + `meta.aggregate`/`groupBy`. This is the default for most dashboards.
-- **Multi-table visualizations (2 or more tables)** → use saved analytics queries via `appDataProvider` + `useCustom` with `meta.kind: "analytics"`. Required when a dashboard element needs to combine data from 2 or more tables to render.
+- **Multi-table visualizations** → use saved analytics queries via `appDataProvider` + `useCustom` with `meta.kind: "analytics"`. This is required when a dashboard element (card, chart, metric, or any visual) needs to combine data from 2 or more tables to render.
 - **Row query + derive in React** is never allowed for summary metrics. Always push aggregation to the server.
 
-Example: "revenue by department" needs orders + departments = 2 tables → analytics. "Orders by status" only needs orders = 1 table → datatable aggregate.
+**Before writing any dashboard query, check:** does this metric/chart need data from more than one table? For example, "revenue by department" needs orders + departments — that's 2 tables, so use analytics. "Orders by status" only needs the orders table — use datatable aggregate.
 
-## Production-ready defaults
+### Step 6 — Default List Views to Backend-Driven Queries
 
-Unless the user explicitly scopes down:
+For any backend-backed list or table page, the default implementation must be backend-driven:
 
-- **Dashboards** show live data, automatically calculated — never hardcoded or demo values.
-- **Lists** use backend pagination (default `pageSize: 10`), server-side search/filter/sort, visible search + filter controls, `useDataGrid` for MUI DataGrid.
-- **Dropdowns** with backend options use debounced server-side `Autocomplete` with pagination — not static `Select`.
-- **Notifications** use Refine's `notificationProvider` — no custom toast systems.
-- **Access control** uses prefixed ACL resource strings (`datatable:employees`, `function:run-report`, `query:dashboard-summary`). Do not use `params.entityType`.
-- **Optional chaining** (`?.`) is required when accessing properties on hook results — data may be `undefined` during loading.
-- **Populate safety** requires schema validation first: only use `meta.populate` with fields that are declared relationships on the datatable. Do not assume UUID columns are populate-capable relationships.
+- backend pagination is required by default
+- default list `pageSize` is `10`; recommend exposing `10`, `20`, `50`, and `100` as user-selectable options
+- search, filters, and sorting must be server-side by default
+- provide visible list controls for search and common filters by default (for example: status, department, date range, active/inactive)
+- when the list is rendered with MUI `DataGrid`, default to Refine `useDataGrid`
+- client-side filtering or search is only allowed if the user explicitly asks for it or the list is intentionally local-only
+- do not fetch one page of backend rows and then apply the primary list filtering logic in React
+- if a backend-backed MUI `DataGrid` list is not using `useDataGrid`, document the reason explicitly
+- if the current schema or query path cannot support the needed server-side list behavior, fix the backend/query path before calling the feature done
+- if search/filter controls are omitted, document the explicit user instruction or concrete reason
+
+### Step 7 — Default Network-Backed Dropdowns to Autocomplete
+
+For any dropdown whose options come from network calls:
+
+- use `Autocomplete` (or equivalent typeahead), not a static `Select`
+- query options from the backend with pagination (default option `pageSize` `10`)
+- debounce input before sending search requests
+- send the current search term as server-side filters, not client-side filtering over previously fetched options
+- if the field cannot support server-side search + pagination, treat that as a query/schema gap and fix it before calling the feature done
+
+### Step 8 — Enforce Access-Control Contract
+
+For permission checks in app code:
+
+- use only the published non-deprecated SDK/provider contract with prefixed ACL resource strings
+- `useCan`/`CanAccess` resources must be in prefixed form (for example `datatable:employees`, `function:employee-terminate`, `query:hrms-dashboard-summary`)
+- do not rely on `params.entityType` for access-control checks
+- verify runtime payloads in browser network logs: each `check/resources` `resource.kind` must exactly match the requested `resource` string
+- when SDK/provider ACL contract changes, app code must be updated in the same release cycle and versioned accordingly
+
+### Step 9 — Default Bulk Actions to Backend Bulk Operations
+
+For bulk update/delete/status-change flows:
+
+- execute bulk changes through backend bulk operations by default (`updateMany`, `deleteMany`, or a batch serverless function)
+- define and show selection scope clearly (selected rows vs filtered result set)
+- return and display partial-failure details per record when applicable
+- invalidate/refetch affected list and related summary queries after completion
+
+### Step 10 — Use Refine Notification Provider
+
+For user-facing success/error feedback:
+
+- use the app's existing Refine notification integration (`notificationProvider`) by default
+- do not introduce custom toast/snackbar systems when Refine notification provider is available
+
+## Rules (always apply)
+
+- **Dashboards** — single-table metrics use datatable `aggregate`/`groupBy`. When a dashboard element needs data from 2 or more tables, use saved analytics queries. Never fetch full row sets into React to derive summary metrics.
+- **Functions** — use a serverless function whenever there is any cross-resource side effect, even if it seems minor.
+- **Lists** — backend pagination, server-side search/filter/sort, visible search + filter controls, `useDataGrid` for MUI DataGrid. No exceptions unless the user explicitly asks.
+- **Dropdowns** — debounced server-side `Autocomplete` with pagination. No static `Select` with one-shot loads.
+- **Deprecated providers** — flag `functionsDataProvider`/`analyticsDataProvider` as deprecated; migrate to `appDataProvider + useCustom`.
+- **Package API** — use the installed package's current non-deprecated API surface. Do not copy deprecated patterns from existing code.
+- **Multi-module tasks** — load all relevant SKILL.md files before starting; don't guess from memory.
+- **Unclear project mode** — ask the user: "Is this a new app or does it already have Taruvi providers set up?"
 
 ## Greenfield scaffold workflow
 
